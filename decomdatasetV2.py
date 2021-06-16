@@ -17,18 +17,35 @@ class DecomTrain(Dataset):
         super(DecomTrain, self).__init__()
         np.random.seed(0)
         self.transform = transform
-        self.imgs, self.anns, self.num_imgs = self.loadToMem(imgs_info)
+        self.datas, self.num_classes = self.loadToMem(imgs_info)
 
     def loadToMem(self, imgs_info):
         print("begin loading training dataset to memory")
-        df = pd.read_json(imgs_info, lines=True)
-        img_paths = list(df['fpath_img'].values)
-        anns = df['fpath_segm'].values
-        ann_paths = ["/data/sara/semantic-segmentation-pytorch/" + ann for ann in anns]
-	
+        datas = {}
+        """even though we might have a few classes, categorizing images based on the classes in them might result in many morecategories.
+         I consider these categories as the keys for data with the idea that if we pick two images from the same categories we have a better 
+		 chance of getting two images with high iou"""
+        agrees = [0, 90, 180, 270]
+        num = 0
+        df = pd.read_csv(imgs_info)
+        CLASSES = list(df.columns)[6:]
+		# for each row find all rows of images with exact same classes and count howmany of them exist
+        #import bpython
+        #bpython.embed(locals())
+        #exit()
+        temp = df.groupby(by=CLASSES).size().reset_index(name='count')
+        # get those with at least 2 images
+        temp = temp[temp['count'] > 1]
+        # do the following for each batch of images that all include the same classes
+        for idx, line in temp.iterrows():
+            temp2 = line.to_frame().transpose()
+            temp2 = temp2.set_index(CLASSES)
+            df2 = df[df.apply(lambda row: tuple(row[CLASSES].values) in temp2.index, axis=1)].reset_index()
+            datas[num] = [list(df2['fpath_img'].values) ,list(df2['fpath_segm'].values)]
+            num += 1
         print("finish loading training dataset to memory")
-        return img_paths, ann_paths, len(img_paths)
-
+        return datas, num
+		
     def iou(self, label1, label2):
         tmp_label2 = cv2.resize(label2, (int(label1.shape[1]), int(label1.shape[0])))
         label1[np.where(label1 == 0)] = 255 # to exclude the bg from intersection
@@ -38,30 +55,42 @@ class DecomTrain(Dataset):
                         intersection
         return intersection/union
 
-
     def __len__(self):
         return  21000000
-	
+
     def __getitem__(self, index):
         # image1 = random.choice(self.dataset.imgs)
         label = None
+        img1 = None
+        img2 = None
+        c1 = c2 = 0
+        # get image from same class
+        if index % 2 == 1:
+            c1 = random.randint(0, self.num_classes - 1)
+            c2 = c1
+        # get image from different class
+        else:
+            c1 = random.randint(0, self.num_classes - 1)
+            c2 = random.randint(0, self.num_classes - 1)
+            while c1 == c2:
+                c2 = random.randint(0, self.num_classes - 1)
 
-        img1_index = random.randint(0, self.num_imgs - 1)
-        img2_index = random.randint(0, self.num_imgs - 1)
-        #try:
-        image1 = Image.open(self.imgs[img1_index]).convert('L')
-        ##image1 = image1.resize((105, 105), Image.BILINEAR)
-        image2 = Image.open(self.imgs[img2_index]).convert('L')
-        ##image2 = image2.resize((105, 105), Image.BILINEAR)
-        #except:
-        #    print(f"idx1: {img1_index}, idx2: {img2_index}, len imgs: {len(self.imgs)}")
-        #    import bpython
-        #    bpython.embed(locals())
-        #    exit()
-        ann1 = cv2.imread(self.anns[img1_index])
-        ann2 = cv2.imread(self.anns[img2_index])
+        try:
+            idx1 = random.randint(0, len(self.datas[c1][0]) - 1)
+            idx2 = random.randint(0, len(self.datas[c2][0]) - 1)
+        except:
+            import bpython
+            bpython.embed(locals())
+            exit()
+
+        image1 = Image.open(self.datas[c1][0][idx1]).convert('L')
+        image2 = Image.open(self.datas[c2][0][idx2]).convert('L')
+
+        ann1 = cv2.imread("/data/sara/semantic-segmentation-pytorch/" + self.datas[c1][1][idx1])
+        ann2 = cv2.imread("/data/sara/semantic-segmentation-pytorch/" + self.datas[c2][1][idx2])
+
         IoU = self.iou(ann1, ann2)
-        if IoU > 0.45:
+        if IoU > 0.5:
             label = 1
         else:
             label = 0
@@ -69,10 +98,7 @@ class DecomTrain(Dataset):
         if self.transform:
             image1 = self.transform(image1)
             image2 = self.transform(image2)
-        #print(f"iou: {IoU} and label is {label}")
-        #print(image1.shape, image2.shape, torch.from_numpy(np.array([label], dtype=np.float32)))
         return image1, image2, torch.from_numpy(np.array([label], dtype=np.float32))
-
 
 class DecomTest(Dataset):
 
@@ -88,7 +114,7 @@ class DecomTest(Dataset):
 
     def loadToMem(self, imgs_info):
         print("begin loading training dataset to memory")
-        df = pd.read_json(imgs_info, lines=True)
+        df = pd.read_csv(imgs_info)
         img_paths = list(df['fpath_img'].values)
         anns = df['fpath_segm'].values
         ann_paths = ["/data/sara/semantic-segmentation-pytorch/" + ann for ann in anns]
@@ -135,5 +161,8 @@ class DecomTest(Dataset):
 
 # test
 if __name__=='__main__':
-    odecomTrain = DecomTrain('/usb/seq_data_for_mit_code/', 30000*8)
-    print(odecomTrain)
+    DecomTrain = DecomTrain('/data/sara/DecompositionFeatureSegmentation/data/bodyparts_csv/train.csv', 30000*8)
+    import bpython
+    bpython.embed(locals())
+    exit()
+    print(omniglotTrain)

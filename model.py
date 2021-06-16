@@ -24,12 +24,18 @@ class AlexNet_Siamese(nn.Module):
         #self.classifier = nn.Linear(256, num_classes)
 
         self.liner = nn.Sequential(nn.Linear(24576, 4096), nn.Sigmoid())
-        self.out = nn.Linear(4096, 1)
+        self.fc1 = nn.Linear(4096, 2048)
+        self.fc2 = nn.Linear(2048, 1024)
+        self.fc3 = nn.Linear(1024, 512)
+        self.out = nn.Linear(512, 1)
 
     def forward_one(self, x):
         x = self.features(x)
         x = x.view(x.size()[0], -1)
         x = self.liner(x)
+        x = self.fc1(x)
+        x = self.fc2(x)
+        x = self.fc3(x)
         return x
 
     def forward(self, x1, x2):

@@ -21,16 +21,16 @@ if __name__ == '__main__':
 
     Flags = gflags.FLAGS
     gflags.DEFINE_bool("cuda", True, "use cuda")
-    gflags.DEFINE_string("train_path", "/home/data/pin/data/omniglot/images_background", "training folder")
-    gflags.DEFINE_string("test_path", "/home/data/pin/data/omniglot/images_evaluation", 'path of testing folder')
-    gflags.DEFINE_integer("way", 20, "how much way one-shot learning")
-    gflags.DEFINE_string("times", 400, "number of samples to test accuracy")
+    gflags.DEFINE_string("train_path", "omniglot/python/images_background", "training folder")
+    gflags.DEFINE_string("test_path", "omniglot/python/images_evaluation", 'path of testing folder')
+    gflags.DEFINE_integer("way", 4, "how much way one-shot learning")
+    gflags.DEFINE_string("times", 4, "number of samples to test accuracy")
     gflags.DEFINE_integer("workers", 0, "number of dataLoader workers")
     gflags.DEFINE_integer("batch_size", 128, "number of batch size")
     gflags.DEFINE_float("lr", 0.00006, "learning rate")
     gflags.DEFINE_integer("show_every", 10, "show result after each show_every iter.")
     gflags.DEFINE_integer("save_every", 100, "save model after each save_every iter.")
-    gflags.DEFINE_integer("test_every", 100, "test model after each test_every iter.")
+    gflags.DEFINE_integer("test_every", 1, "test model after each test_every iter.")
     gflags.DEFINE_integer("max_iter", 50000, "number of iterations before stopping")
     gflags.DEFINE_string("model_path", "/home/data/pin/model/siamese", "path to store model")
     gflags.DEFINE_string("gpu_ids", "0,1,2,3", "gpu ids used to train")
@@ -103,6 +103,10 @@ if __name__ == '__main__':
                 test1, test2 = Variable(test1), Variable(test2)
                 output = net.forward(test1, test2).data.cpu().numpy()
                 pred = np.argmax(output)
+                print("test: ")
+                import bpython
+                bpython.embed(locals())
+                exit()
                 if pred == 0:
                     right += 1
                 else: error += 1
